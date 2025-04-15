@@ -1,32 +1,58 @@
-import sys
+import os
 import torch
 import torch.nn.functional as F
-import cv2
 import numpy as np
-from PyQt5 import QtWidgets, QtGui, QtCore
-from PyQt5.QtWidgets import QFileDialog
 from skimage import img_as_ubyte
-import utils
-from natsort import natsorted
 from basicsr.models.archs.restormer_arch import Restormer
 import yaml
+import cv2
+from PyQt5 import QtWidgets, QtGui, QtCore
+from PyQt5.QtWidgets import QFileDialog
 
+# 获取当前文件所在的目录
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# 使用相对路径构建yaml文件的路径
+yaml_file = os.path.join(current_dir, 'Options', 'Deraining_Restormer.yml')
+
+# 检查文件是否存在
+if not os.path.exists(yaml_file):
+    print(f"文件 {yaml_file} 不存在！")
 
 # 加载Restormer模型
-def load_restormer_model(weights_path):
-    yaml_file = 'Options/Deraining_Restormer.yml'
+def load_restormer_model():
+    # 预训练模型的路径
+    weights_path = 'D:/ProgramData/pycharm/Image-Enhancement/Deraining/pretrained_models/deraining.pth'
+
+    # 获取当前文件所在的目录
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # 使用相对路径构建yaml文件的路径
+    yaml_file = os.path.join(current_dir, 'Options', 'Deraining_Restormer.yml')
+
+    # 检查文件是否存在
+    if not os.path.exists(yaml_file):
+        print(f"文件 {yaml_file} 不存在！")
+        return None
+
+    # 尝试从yaml文件中加载配置
     try:
         from yaml import CLoader as Loader
     except ImportError:
         from yaml import Loader
 
-    x = yaml.load(open(yaml_file, mode='r'), Loader=Loader)
+    # 加载yaml文件，获取配置
+    with open(yaml_file, 'r') as f:
+        x = yaml.load(f, Loader=Loader)
 
+    # 去除不需要的'type'字段
     if 'type' in x['network_g']:
         del x['network_g']['type']
 
+    # 初始化 Restormer 模型
     model_restoration = Restormer(**x['network_g'])
 
+    # 加载训练好的模型权重
     checkpoint = torch.load(weights_path, weights_only=True)
     model_restoration.load_state_dict(checkpoint['params'])
     model_restoration.cuda()
@@ -34,6 +60,7 @@ def load_restormer_model(weights_path):
     model_restoration.eval()
 
     return model_restoration
+
 
 
 # 实现雨天增强功能
@@ -59,70 +86,6 @@ def rain_enhance(input_image, model_restoration):
     restored = torch.clamp(restored, 0, 1).cpu().detach().permute(0, 2, 3, 1).squeeze(0).numpy()
 
     return img_as_ubyte(restored)
-
-
-class ImageEnhancerApp(QtWidgets.QWidget):
-    def __init__(self):
-        super().__init__()
-
-        # Initialize model
-        self.model_restoration = load_restormer_model('./pretrained_models/deraining.pth')
-
-        self.initUI()
-
-    def initUI(self):
-        # Set window properties
-        self.setWindowTitle('图像增强工具')
-        self.setGeometry(100, 100, 1000, 600)
-
-        # Set background image
-        self.set_background_image('D:/ProgramData/pycharm/Image-Enhancement/background.webp')  # 替换为实际的图片路径
-
-        # Layout
-        layout = QtWidgets.QVBoxLayout()
-
-        # Button layout for mode selection
-        button_layout = QtWidgets.QHBoxLayout()
-
-        # Add mode buttons (e.g., Rain Enhancement, Low Light, etc.)
-        self.rainy_button = QtWidgets.QPushButton('雨天增强')
-        self.rainy_button.clicked.connect(self.show_rainy_ui)
-        button_layout.addWidget(self.rainy_button)
-
-        self.low_light_button = QtWidgets.QPushButton('低光增强')
-        self.low_light_button.clicked.connect(self.show_low_light_ui)
-        button_layout.addWidget(self.low_light_button)
-
-        self.foggy_button = QtWidgets.QPushButton('雾天增强')
-        self.foggy_button.clicked.connect(self.show_foggy_ui)
-        button_layout.addWidget(self.foggy_button)
-
-        layout.addLayout(button_layout)
-
-        # Main display area (image display)
-        self.image_display = QtWidgets.QLabel('欢迎使用图像增强工具')
-        self.image_display.setAlignment(QtCore.Qt.AlignCenter)
-        layout.addWidget(self.image_display)
-
-        # Set layout
-        self.setLayout(layout)
-
-    def set_background_image(self, image_path):
-        """ 设置窗口的背景图像 """
-        self.setStyleSheet(f"background-image: url('{image_path}'); background-repeat: no-repeat; background-position: center;")
-
-    def show_rainy_ui(self):
-        self.rainy_ui = RainEnhanceUI(self.model_restoration)
-        self.rainy_ui.show()
-
-    def show_low_light_ui(self):
-        # Low light enhancement function (empty for now)
-        pass
-
-    def show_foggy_ui(self):
-        # Foggy day enhancement function (empty for now)
-        pass
-
 
 class RainEnhanceUI(QtWidgets.QWidget):
     def __init__(self, model_restoration):
@@ -193,10 +156,3 @@ class RainEnhanceUI(QtWidgets.QWidget):
             if file_path:
                 cv2.imwrite(file_path, self.original_image)
                 QtWidgets.QMessageBox.information(self, "保存成功", "图像已保存")
-
-
-if __name__ == '__main__':
-    app = QtWidgets.QApplication(sys.argv)
-    ex = ImageEnhancerApp()
-    ex.show()
-    sys.exit(app.exec_())
