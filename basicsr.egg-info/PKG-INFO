@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: basicsr
-Version: 1.2.0+10018c6
+Version: 1.2.0+0a3cc2c
 Summary: Open Source Image and Video Super-Resolution Toolbox
 Home-page: https://github.com/xinntao/BasicSR
 Author: Xintao Wang
@@ -13,7 +13,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
-License-File: LICENSE.md
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

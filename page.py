@@ -1,7 +1,7 @@
 import sys
 
 from PyQt5 import QtWidgets, QtGui, QtCore
-import RainEnhanceUI
+from Dehaze.dehaze import load_dehaze_model,DehazeUI
 from Deraining.deraining import load_restormer_model,RainEnhanceUI
 
 class ImageEnhancerApp(QtWidgets.QWidget):
@@ -10,7 +10,7 @@ class ImageEnhancerApp(QtWidgets.QWidget):
 
         # Initialize model
         self.model_restoration = load_restormer_model()
-
+        self.dehaze_model=load_dehaze_model()
         self.initUI()
 
     def initUI(self):
@@ -37,7 +37,7 @@ class ImageEnhancerApp(QtWidgets.QWidget):
         button_layout.addWidget(self.low_light_button)
 
         self.foggy_button = QtWidgets.QPushButton('雾天增强')
-        self.foggy_button.clicked.connect(self.show_foggy_ui)
+        self.foggy_button.clicked.connect(self.show_dehaze_ui)
         button_layout.addWidget(self.foggy_button)
 
         layout.addLayout(button_layout)
@@ -62,9 +62,9 @@ class ImageEnhancerApp(QtWidgets.QWidget):
         # Low light enhancement function (empty for now)
         pass
 
-    def show_foggy_ui(self):
-        # Foggy day enhancement function (empty for now)
-        pass
+    def show_dehaze_ui(self):
+        self.dehaze_ui=DehazeUI(self.dehaze_model)
+        self.dehaze_ui.show()
 
 
 
