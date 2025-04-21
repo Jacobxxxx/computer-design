@@ -1,9 +1,9 @@
 import sys
-
+import os
 from PyQt5 import QtWidgets, QtGui, QtCore
 from Dehaze.dehaze import load_dehaze_model,DehazeUI
 from Deraining.deraining import load_restormer_model,RainEnhanceUI
-
+from Lowlightenhance.lowlight_enhance import load_model,LowLightEnhanceUI
 class ImageEnhancerApp(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
@@ -11,15 +11,15 @@ class ImageEnhancerApp(QtWidgets.QWidget):
         # Initialize model
         self.model_restoration = load_restormer_model()
         self.dehaze_model=load_dehaze_model()
+        self.low_light_model=load_model()
         self.initUI()
 
     def initUI(self):
         # Set window properties
         self.setWindowTitle('图像增强工具')
         self.setGeometry(100, 100, 1000, 600)
-
         # Set background image
-        self.set_background_image('D:/ProgramData/pycharm/Image-Enhancement/background.webp')  # 替换为实际的图片路径
+        self.set_background_image('D:/ProgramData/pycharm/Image-Enhancement/background.png')  # 替换为实际的图片路径
 
         # Layout
         layout = QtWidgets.QVBoxLayout()
@@ -59,8 +59,8 @@ class ImageEnhancerApp(QtWidgets.QWidget):
         self.rainy_ui.show()
 
     def show_low_light_ui(self):
-        # Low light enhancement function (empty for now)
-        pass
+        self.low_light_ui = LowLightEnhanceUI(self.low_light_model)
+        self.low_light_ui.show()
 
     def show_dehaze_ui(self):
         self.dehaze_ui=DehazeUI(self.dehaze_model)
