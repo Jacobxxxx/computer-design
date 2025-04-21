@@ -6,8 +6,9 @@ from Deraining.deraining import load_restormer_model, RainEnhanceUI
 from Lowlightenhance.lowlight_enhance import load_model, LowLightEnhanceUI
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QFileDialog, QMessageBox, QSizePolicy)
-from PyQt5.QtGui import QImage, QPixmap, QFont, QIcon
+from PyQt5.QtGui import QImage, QPixmap, QFont, QIcon, QPainter
 from PyQt5.QtCore import Qt, QSize
+
 
 class ImageEnhancerApp(QWidget):
     def __init__(self):
@@ -17,13 +18,14 @@ class ImageEnhancerApp(QWidget):
         self.low_light_model = load_model()
         self.initUI()
         self.init_style()
+        self.background = QPixmap("background.png")  # 加载背景图片
 
     def init_style(self):
         self.setStyleSheet("""
             QWidget {
-                background: #0A192F;
                 color: #FFFFFF;
                 font-family: 'Microsoft YaHei';
+                background: transparent;
             }
             QPushButton {
                 background: rgba(0,229,255,0.15);
@@ -41,40 +43,59 @@ class ImageEnhancerApp(QWidget):
             QPushButton:pressed {
                 background: rgba(0,229,255,0.5);
             }
-            QLabel#title {
-                font-size: 24px;
+            QLabel#main_title {
+                font-size: 36px;
                 color: #00E5FF;
                 font-weight: bold;
+                padding: 15px 0;
             }
+
         """)
 
+    def paintEvent(self, event):
+        """ 绘制背景图片 """
+        painter = QPainter(self)
+        if not self.background.isNull():
+            scaled_bg = self.background.scaled(
+                self.size(),
+                Qt.KeepAspectRatioByExpanding,
+                Qt.SmoothTransformation
+            )
+            painter.drawPixmap(
+                (self.width() - scaled_bg.width()) // 2,
+                (self.height() - scaled_bg.height()) // 2,
+                scaled_bg
+            )
+
     def initUI(self):
-        self.setWindowTitle("路视达 - 自动驾驶辅助系统")
+        self.setWindowTitle("视驾通")
         self.setGeometry(100, 100, 1200, 800)
 
+        # 主布局
         main_layout = QHBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        # 左侧车辆展示区
+        # ===================== 左侧面板 =====================
         left_panel = QWidget()
         left_panel.setFixedWidth(400)
+        left_panel.setAttribute(Qt.WA_TranslucentBackground)
         left_layout = QVBoxLayout()
-        left_layout.addWidget(QLabel("环境感知可视化"))
-        # 车辆3D模型占位图
-        car_image = QLabel()
-        car_image.setPixmap(QPixmap("car_model.png").scaled(380, 300, Qt.KeepAspectRatio))
-        left_layout.addWidget(car_image)
+
+        # 主标题
+        title = QLabel("视驾通")
+        title.setObjectName("main_title")
+        title.setAlignment(Qt.AlignCenter)
+        left_layout.addWidget(title)
+
+
+
         left_panel.setLayout(left_layout)
 
-        # 右侧功能操作区
+        # ===================== 右侧面板 =====================
         right_panel = QWidget()
+        right_panel.setAttribute(Qt.WA_TranslucentBackground)
         right_layout = QVBoxLayout()
         right_layout.setContentsMargins(50, 50, 50, 50)
-
-        # 系统标题
-        title = QLabel("恶劣天气增强系统")
-        title.setObjectName("title")
-        title.setAlignment(Qt.AlignCenter)
 
         # 功能按钮组
         btn_group = QVBoxLayout()
@@ -94,20 +115,11 @@ class ImageEnhancerApp(QWidget):
             btn.clicked.connect(self.create_handler(text))
             btn_group.addWidget(btn)
 
-        # 系统状态栏
-        status_bar = QHBoxLayout()
-        status_bar.addWidget(QLabel("GPU: 12%"))
-        status_bar.addWidget(QLabel("显存: 54%"))
-        status_bar.addStretch()
-        status_bar.addWidget(QLabel("图像增强算法 V2.1"))
-
-        right_layout.addWidget(title)
         right_layout.addLayout(btn_group)
         right_layout.addStretch()
-        right_layout.addLayout(status_bar)
-
         right_panel.setLayout(right_layout)
 
+        # 组合布局
         main_layout.addWidget(left_panel)
         main_layout.addWidget(right_panel)
         self.setLayout(main_layout)
@@ -120,6 +132,7 @@ class ImageEnhancerApp(QWidget):
                 self.show_low_light_ui()
             elif func_name == "雾天增强":
                 self.show_dehaze_ui()
+
         return handler
 
     def show_rainy_ui(self):
@@ -134,10 +147,14 @@ class ImageEnhancerApp(QWidget):
         self.dehaze_ui = DehazeUI(self.dehaze_model)
         self.dehaze_ui.show()
 
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    # 统一字体设置
     font = QFont("Microsoft YaHei", 10)
     app.setFont(font)
+    # 高DPI支持
+    app.setAttribute(Qt.AA_EnableHighDpiScaling)
     window = ImageEnhancerApp()
     window.show()
     sys.exit(app.exec_())

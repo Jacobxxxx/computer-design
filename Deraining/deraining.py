@@ -134,7 +134,7 @@ class RainEnhanceUI(QWidget):
         """)
 
     def initUI(self):
-        self.setWindowTitle("雨天增强 - 路视达")
+        self.setWindowTitle("雨天增强 - 视驾通")
         self.setGeometry(200, 200, 1000, 600)
 
         main_layout = QVBoxLayout()

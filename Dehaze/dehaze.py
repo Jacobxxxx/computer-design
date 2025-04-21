@@ -171,7 +171,7 @@ class DehazeUI(QWidget):
         """)
 
     def initUI(self):
-        self.setWindowTitle("去雾增强 - 路视达")
+        self.setWindowTitle("雾天增强 - 视驾通")
         self.setGeometry(200, 200, 1000, 600)
 
         main_layout = QVBoxLayout()
@@ -190,7 +190,7 @@ class DehazeUI(QWidget):
 
         self.processed_view = QLabel("处理后图像区域")
         self.processed_view.setAlignment(Qt.AlignCenter)
-        self.processed_view.setToolTip("去雾增强结果")
+        self.processed_view.setToolTip("雾天增强结果")
 
         image_layout.addWidget(self.original_view)
         image_layout.addWidget(self.processed_view)
