@@ -10,6 +10,12 @@ import numpy as np
 import os
 from skimage import img_as_ubyte
 import cv2
+from PyQt5 import QtWidgets, QtGui, QtCore
+from PyQt5.QtWidgets import QFileDialog
+from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                             QPushButton, QFileDialog, QMessageBox, QSizePolicy)
+from PyQt5.QtGui import QImage, QPixmap, QFont, QIcon
+from PyQt5.QtCore import Qt, QSize
 from Dehaze.utils import write_img, chw_to_hwc
 # 抑制timm库的FutureWarning
 warnings.filterwarnings("ignore", category=FutureWarning, module="timm.models.layers")
@@ -121,72 +127,181 @@ def dehaze_enhance(input_image, network):
 
 
 # 去雾功能GUI界面
-class DehazeUI(QtWidgets.QWidget):
+class DehazeUI(QWidget):
     def __init__(self, model):
         super().__init__()
         self.model = model
         self.processed_image = None
         self.initUI()
+        self.init_style()
+
+    def init_style(self):
+        self.setStyleSheet("""
+            QWidget {
+                background: #0A192F;
+                color: #FFFFFF;
+                font-family: 'Microsoft YaHei';
+            }
+            QLabel {
+                border: 2px solid #00E5FF;
+                border-radius: 8px;
+                min-width: 400px;
+                min-height: 300px;
+            }
+            QPushButton {
+                background: rgba(0,229,255,0.15);
+                border: 2px solid #00E5FF;
+                border-radius: 8px;
+                padding: 12px 20px;
+                font-size: 14px;
+                min-width: 120px;
+            }
+            QPushButton:hover {
+                background: rgba(0,229,255,0.3);
+                box-shadow: 0 0 8px rgba(0,229,255,0.5);
+            }
+            QPushButton#process_btn {
+                background: rgba(255,0,85,0.15);
+                border-color: #FF0055;
+            }
+            QPushButton#process_btn:hover {
+                background: rgba(255,0,85,0.3);
+                box-shadow: 0 0 8px rgba(255,0,85,0.5);
+            }
+        """)
 
     def initUI(self):
-        self.setWindowTitle('去雾增强')  # 修正了标题
-        self.setGeometry(100, 100, 800, 600)
+        self.setWindowTitle("去雾增强 - 路视达")
+        self.setGeometry(200, 200, 1000, 600)
 
-        layout = QtWidgets.QVBoxLayout()
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(20, 15, 20, 15)
+        main_layout.setSpacing(20)
 
-        # Left side: original image
-        self.original_image_label = QtWidgets.QLabel('原始图像')
-        self.original_image_label.setAlignment(QtCore.Qt.AlignCenter)
-        layout.addWidget(self.original_image_label)
 
-        # Right side: processed image
-        self.processed_image_label = QtWidgets.QLabel('处理后的图像')
-        self.processed_image_label.setAlignment(QtCore.Qt.AlignCenter)
-        layout.addWidget(self.processed_image_label)
 
-        # File selection button
-        self.select_button = QtWidgets.QPushButton('选择文件')
-        self.select_button.clicked.connect(self.select_file)
-        layout.addWidget(self.select_button)
+        # 图像显示区
+        image_layout = QHBoxLayout()
+        image_layout.setSpacing(20)
 
-        # Process button
-        self.process_button = QtWidgets.QPushButton('开始处理')
-        self.process_button.clicked.connect(self.process_image)
-        layout.addWidget(self.process_button)
+        self.original_view = QLabel("原始图像区域")
+        self.original_view.setAlignment(Qt.AlignCenter)
+        self.original_view.setToolTip("原始输入图像")
 
-        # Save button
-        self.save_button = QtWidgets.QPushButton('保存文件')
-        self.save_button.clicked.connect(self.save_file)
-        layout.addWidget(self.save_button)
+        self.processed_view = QLabel("处理后图像区域")
+        self.processed_view.setAlignment(Qt.AlignCenter)
+        self.processed_view.setToolTip("去雾增强结果")
 
-        self.setLayout(layout)
+        image_layout.addWidget(self.original_view)
+        image_layout.addWidget(self.processed_view)
+
+        # 操作按钮组
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(15)
+
+        self.btn_select = QPushButton(QIcon("open_file.svg"), "选择文件")
+        self.btn_select.setIconSize(QSize(24, 24))
+        self.btn_select.clicked.connect(self.select_file)
+
+        self.btn_process = QPushButton(QIcon("start_process.svg"), "开始处理")
+        self.btn_process.setObjectName("process_btn")
+        self.btn_process.setIconSize(QSize(24, 24))
+        self.btn_process.clicked.connect(self.process_image)
+
+        self.btn_save = QPushButton(QIcon("save_file.svg"), "保存结果")
+        self.btn_save.setIconSize(QSize(24, 24))
+        self.btn_save.clicked.connect(self.save_file)
+
+        btn_layout.addStretch()
+        btn_layout.addWidget(self.btn_select)
+        btn_layout.addWidget(self.btn_process)
+        btn_layout.addWidget(self.btn_save)
+        btn_layout.addStretch()
+
+        main_layout.addLayout(image_layout)
+        main_layout.addLayout(btn_layout)
+        self.setLayout(main_layout)
 
     def select_file(self):
         options = QFileDialog.Options()
-        self.file_path, _ = QFileDialog.getOpenFileName(self, "选择图像文件", "", "Images (*.png *.xpm *.jpg *.jpeg)",
-                                                        options=options)
-        if self.file_path:
-            self.original_image = cv2.imread(self.file_path)
-            self.display_image(self.original_image, self.original_image_label)
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "选择图像文件", "",
+            "Images (*.png *.xpm *.jpg *.jpeg *.bmp)", options=options)
+
+        if file_path:
+            try:
+                self.original_image = cv2.imread(file_path)
+                if self.original_image is None:
+                    raise ValueError("无法读取图像文件")
+                self.display_image(self.original_image, self.original_view)
+            except Exception as e:
+                QMessageBox.critical(self, "文件错误", f"加载图像失败:\n{str(e)}")
 
     def process_image(self):
         if hasattr(self, 'original_image'):
-            enhanced_image = dehaze_enhance(self.original_image, self.model)
-            self.display_image(enhanced_image, self.processed_image_label)
+            self.btn_process.setEnabled(False)
+            self.btn_process.setText("处理中...")
+            QtWidgets.QApplication.processEvents()
+
+            try:
+                enhanced_image = dehaze_enhance(self.original_image, self.model)
+                self.display_image(enhanced_image, self.processed_view)
+                self.enhanced_image = enhanced_image
+            except Exception as e:
+                QMessageBox.critical(self, "处理错误",
+                                     f"图像处理失败:\n{str(e)}\n错误类型: {type(e).__name__}")
+            finally:
+                self.btn_process.setEnabled(True)
+                self.btn_process.setText("开始处理")
 
     def display_image(self, image, label):
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        h, w, _ = image_rgb.shape
-        bytes_per_line = 3 * w
-        qimg = QtGui.QImage(image_rgb.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
-        pixmap = QtGui.QPixmap.fromImage(qimg)
-        label.setPixmap(pixmap.scaled(400, 300, QtCore.Qt.KeepAspectRatio))
+        try:
+            if image is None or image.size == 0:
+                raise ValueError("无效的输入图像")
+
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            if not image_rgb.flags['C_CONTIGUOUS']:
+                image_rgb = np.ascontiguousarray(image_rgb)
+
+            h, w, ch = image_rgb.shape
+            img_bytes = image_rgb.tobytes()
+
+            qimg = QImage(img_bytes, w, h,
+                          ch * w, QImage.Format_RGB888)
+            pixmap = QPixmap.fromImage(qimg).scaled(
+                label.width() - 20, label.height() - 20,
+                Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            label.setPixmap(pixmap)
+
+        except Exception as e:
+            QMessageBox.critical(self, "显示错误",
+                                 f"无法显示图像: {str(e)}\n"
+                                 f"尺寸: {image.shape if hasattr(image, 'shape') else 'N/A'}")
 
     def save_file(self):
-        if hasattr(self, 'original_image'):
+        if hasattr(self, 'enhanced_image'):
             options = QFileDialog.Options()
-            file_path, _ = QFileDialog.getSaveFileName(self, "保存图像", "", "Images (*.png *.jpg)", options=options)
+            file_path, _ = QFileDialog.getSaveFileName(
+                self, "保存图像", "",
+                "PNG Files (*.png);;JPEG Files (*.jpg)", options=options)
+
             if file_path:
-                cv2.imwrite(file_path, self.original_image)
-                QtWidgets.QMessageBox.information(self, "保存成功", "图像已保存")
+                try:
+                    cv2.imwrite(file_path,
+                                cv2.cvtColor(self.enhanced_image, cv2.COLOR_RGB2BGR))
+                    QMessageBox.information(self, "保存成功",
+                                            f"图像已保存至:\n{file_path}", QMessageBox.Ok)
+                except Exception as e:
+                    QMessageBox.critical(self, "保存失败",
+                                         f"保存文件时出错:\n{str(e)}")
+
+    def resizeEvent(self, event):
+        for label in [self.original_view, self.processed_view]:
+            pixmap = label.pixmap()
+            if pixmap:
+                label.setPixmap(pixmap.scaled(
+                    label.width() - 20, label.height() - 20,
+                    Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        super().resizeEvent(event)
 

@@ -1,58 +1,126 @@
 import sys
 import os
 from PyQt5 import QtWidgets, QtGui, QtCore
-from Dehaze.dehaze import load_dehaze_model,DehazeUI
-from Deraining.deraining import load_restormer_model,RainEnhanceUI
-from Lowlightenhance.lowlight_enhance import load_model,LowLightEnhanceUI
-class ImageEnhancerApp(QtWidgets.QWidget):
+from Dehaze.dehaze import load_dehaze_model, DehazeUI
+from Deraining.deraining import load_restormer_model, RainEnhanceUI
+from Lowlightenhance.lowlight_enhance import load_model, LowLightEnhanceUI
+from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                             QPushButton, QFileDialog, QMessageBox, QSizePolicy)
+from PyQt5.QtGui import QImage, QPixmap, QFont, QIcon
+from PyQt5.QtCore import Qt, QSize
+
+class ImageEnhancerApp(QWidget):
     def __init__(self):
         super().__init__()
-
-        # Initialize model
         self.model_restoration = load_restormer_model()
-        self.dehaze_model=load_dehaze_model()
-        self.low_light_model=load_model()
+        self.dehaze_model = load_dehaze_model()
+        self.low_light_model = load_model()
         self.initUI()
+        self.init_style()
+
+    def init_style(self):
+        self.setStyleSheet("""
+            QWidget {
+                background: #0A192F;
+                color: #FFFFFF;
+                font-family: 'Microsoft YaHei';
+            }
+            QPushButton {
+                background: rgba(0,229,255,0.15);
+                border: 2px solid #00E5FF;
+                border-radius: 8px;
+                padding: 15px 25px;
+                font-size: 16px;
+                min-width: 180px;
+            }
+            QPushButton:hover {
+                background: rgba(0,229,255,0.3);
+                border: 2px solid #00E5FF;
+                box-shadow: 0 0 10px rgba(0,229,255,0.5);
+            }
+            QPushButton:pressed {
+                background: rgba(0,229,255,0.5);
+            }
+            QLabel#title {
+                font-size: 24px;
+                color: #00E5FF;
+                font-weight: bold;
+            }
+        """)
 
     def initUI(self):
-        # Set window properties
-        self.setWindowTitle('图像增强工具')
-        self.setGeometry(100, 100, 1000, 600)
-        # Set background image
-        self.set_background_image('D:/ProgramData/pycharm/Image-Enhancement/background.png')  # 替换为实际的图片路径
+        self.setWindowTitle("路视达 - 自动驾驶辅助系统")
+        self.setGeometry(100, 100, 1200, 800)
 
-        # Layout
-        layout = QtWidgets.QVBoxLayout()
+        main_layout = QHBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Button layout for mode selection
-        button_layout = QtWidgets.QHBoxLayout()
+        # 左侧车辆展示区
+        left_panel = QWidget()
+        left_panel.setFixedWidth(400)
+        left_layout = QVBoxLayout()
+        left_layout.addWidget(QLabel("环境感知可视化"))
+        # 车辆3D模型占位图
+        car_image = QLabel()
+        car_image.setPixmap(QPixmap("car_model.png").scaled(380, 300, Qt.KeepAspectRatio))
+        left_layout.addWidget(car_image)
+        left_panel.setLayout(left_layout)
 
-        # Add mode buttons (e.g., Rain Enhancement, Low Light, etc.)
-        self.rainy_button = QtWidgets.QPushButton('雨天增强')
-        self.rainy_button.clicked.connect(self.show_rainy_ui)
-        button_layout.addWidget(self.rainy_button)
+        # 右侧功能操作区
+        right_panel = QWidget()
+        right_layout = QVBoxLayout()
+        right_layout.setContentsMargins(50, 50, 50, 50)
 
-        self.low_light_button = QtWidgets.QPushButton('低光增强')
-        self.low_light_button.clicked.connect(self.show_low_light_ui)
-        button_layout.addWidget(self.low_light_button)
+        # 系统标题
+        title = QLabel("恶劣天气增强系统")
+        title.setObjectName("title")
+        title.setAlignment(Qt.AlignCenter)
 
-        self.foggy_button = QtWidgets.QPushButton('雾天增强')
-        self.foggy_button.clicked.connect(self.show_dehaze_ui)
-        button_layout.addWidget(self.foggy_button)
+        # 功能按钮组
+        btn_group = QVBoxLayout()
+        btn_group.setSpacing(20)
+        functions = [
+            ("雨天增强", "rain_enhance.svg"),
+            ("低光增强", "low_light.svg"),
+            ("雾天增强", "fog_enhance.svg")
+        ]
 
-        layout.addLayout(button_layout)
+        for text, icon in functions:
+            btn = QPushButton()
+            btn.setIcon(QIcon(icon))
+            btn.setIconSize(QSize(32, 32))
+            btn.setText(text)
+            btn.setToolTip(f"启动{text}功能模块")
+            btn.clicked.connect(self.create_handler(text))
+            btn_group.addWidget(btn)
 
-        # Main display area (image display)
-        self.image_display = QtWidgets.QLabel('欢迎使用图像增强工具')
-        self.image_display.setAlignment(QtCore.Qt.AlignCenter)
-        layout.addWidget(self.image_display)
+        # 系统状态栏
+        status_bar = QHBoxLayout()
+        status_bar.addWidget(QLabel("GPU: 12%"))
+        status_bar.addWidget(QLabel("显存: 54%"))
+        status_bar.addStretch()
+        status_bar.addWidget(QLabel("图像增强算法 V2.1"))
 
-        # Set layout
-        self.setLayout(layout)
+        right_layout.addWidget(title)
+        right_layout.addLayout(btn_group)
+        right_layout.addStretch()
+        right_layout.addLayout(status_bar)
 
-    def set_background_image(self, image_path):
-        """ 设置窗口的背景图像 """
-        self.setStyleSheet(f"background-image: url('{image_path}'); background-repeat: no-repeat; background-position: center;")
+        right_panel.setLayout(right_layout)
+
+        main_layout.addWidget(left_panel)
+        main_layout.addWidget(right_panel)
+        self.setLayout(main_layout)
+
+    def create_handler(self, func_name):
+        def handler():
+            if func_name == "雨天增强":
+                self.show_rainy_ui()
+            elif func_name == "低光增强":
+                self.show_low_light_ui()
+            elif func_name == "雾天增强":
+                self.show_dehaze_ui()
+        return handler
 
     def show_rainy_ui(self):
         self.rainy_ui = RainEnhanceUI(self.model_restoration)
@@ -63,15 +131,13 @@ class ImageEnhancerApp(QtWidgets.QWidget):
         self.low_light_ui.show()
 
     def show_dehaze_ui(self):
-        self.dehaze_ui=DehazeUI(self.dehaze_model)
+        self.dehaze_ui = DehazeUI(self.dehaze_model)
         self.dehaze_ui.show()
 
-
-
-
-
 if __name__ == '__main__':
-    app = QtWidgets.QApplication(sys.argv)
-    ex = ImageEnhancerApp()
-    ex.show()
+    app = QApplication(sys.argv)
+    font = QFont("Microsoft YaHei", 10)
+    app.setFont(font)
+    window = ImageEnhancerApp()
+    window.show()
     sys.exit(app.exec_())
