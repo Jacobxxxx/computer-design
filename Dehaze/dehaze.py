@@ -17,33 +17,32 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QL
 from PyQt5.QtGui import QImage, QPixmap, QFont, QIcon
 from PyQt5.QtCore import Qt, QSize
 from Dehaze.utils import write_img, chw_to_hwc
-# 抑制timm库的FutureWarning
+
 warnings.filterwarnings("ignore", category=FutureWarning, module="timm.models.layers")
 
-# 抑制meshgrid相关警告
+
 warnings.filterwarnings("ignore", category=UserWarning,
                         message="torch.meshgrid: in an upcoming release")
 
 
 def load_model_weights(weight_path):
     """安全加载模型权重"""
-    # 使用相对路径或动态计算的绝对路径
-    #weight_path = os.path.abspath(weight_path)  # 转换为绝对路径
+
     if not os.path.exists(weight_path):
         raise FileNotFoundError(f"[权重文件缺失] 未找到预训练权重文件: {weight_path}")
 
     try:
-        # 添加weights_only参数避免警告
+
         state_dict = torch.load(
             weight_path,
             weights_only = True
         )['state_dict']
-    except TypeError:  # 处理旧版本PyTorch兼容性
+    except TypeError:
         state_dict = torch.load(weight_path, map_location='cpu')['state_dict']
 
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():
-        if k.startswith('module.'):  # 处理可能的分布式训练权重
+        if k.startswith('module.'):
             k = k[7:]
         new_state_dict[k] = v
     return new_state_dict
@@ -51,11 +50,11 @@ def load_model_weights(weight_path):
 
 def load_dehaze_model():
     """稳健的模型加载函数"""
-    # 设备检测
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     try:
-        # 动态加载模型类
+
         model_class = eval('dehazeformer_b')
     except NameError:
         raise RuntimeError("""[模型加载错误] 未找到 'dehazeformer_b' 类定义，请确认：
@@ -64,12 +63,12 @@ def load_dehaze_model():
         3. 已正确导入模型模块
         """)
 
-    # 实例化模型
+
     model = model_class()
     model.cuda()
     current_dir = os.path.dirname(os.path.abspath(__file__))
     weight_path=os.path.join(current_dir, 'saved_models', 'dehazeformer-b.pth')
-  # 使用动态计算的绝对路径
+
     if not os.path.exists(weight_path):
         raise FileNotFoundError(f"[权重文件缺失] 未找到预训练权重文件: {weight_path}")
 
@@ -92,18 +91,18 @@ def load_dehaze_model():
 
 
 def dehaze_enhance(input_image, network):
-    # 确保网络处于评估模式
+
     network.eval()
 
-    # 预处理流程（与PairLoader完全一致）
-    img = np.float32(input_image) / 255.0  # 原始代码的read_img隐含归一化
-    img = img * 2 - 1  # 匹配训练时的[-1,1]标准化
 
-    # 维度转换（保持与hwc_to_chw一致）
+    img = np.float32(input_image) / 255.0
+    img = img * 2 - 1
+
+
     img_tensor = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0).cuda()  # HWC->CHW
 
-    # 动态填充（兼容任意尺寸输入）
-    factor = 8  # 根据实际模型结构修改
+
+    factor = 8
     _, _, h, w = img_tensor.shape
     H = ((h + factor) // factor) * factor
     W = ((w + factor) // factor) * factor
@@ -112,16 +111,15 @@ def dehaze_enhance(input_image, network):
     if padh + padw > 0:
         img_tensor = F.pad(img_tensor, (0, padw, 0, padh), mode='reflect')
 
-    # 模型推理（严格对齐test代码）
+
     with torch.no_grad():
-        output = network(img_tensor).clamp_(-1, 1)  # 显式clamp
+        output = network(img_tensor).clamp_(-1, 1)
 
-    # 后处理流程（与test代码的保存逻辑一致）
-    output = output * 0.5 + 0.5  # [-1,1]->[0,1]转换
-    output = output[:, :, :h, :w]  # 移除填充
+    output = output * 0.5 + 0.5
+    output = output[:, :, :h, :w]
 
-    # 转换为numpy格式（使用chw_to_hwc逆操作）
-    output_np = output.squeeze(0).permute(1, 2, 0).cpu().numpy()  # CHW->HWC
+
+    output_np = output.squeeze(0).permute(1, 2, 0).cpu().numpy()
 
     return img_as_ubyte(output_np)
 
@@ -223,10 +221,12 @@ class DehazeUI(QWidget):
         self.setLayout(main_layout)
 
     def select_file(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        dataset_dir = os.path.join(current_dir, "test")
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "选择图像文件", "",
-            "Images (*.png *.xpm *.jpg *.jpeg *.bmp)", options=options)
+            self, "选择图像文件", directory=dataset_dir,
+            filter="Images (*.png *.jpg *.jpeg *.bmp)", options=options)
 
         if file_path:
             try:
@@ -281,20 +281,21 @@ class DehazeUI(QWidget):
 
     def save_file(self):
         if hasattr(self, 'enhanced_image'):
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            dataset_dir = os.path.join(current_dir, "output")
+            os.makedirs(dataset_dir, exist_ok=True)  # 确保目标目录存在
             options = QFileDialog.Options()
             file_path, _ = QFileDialog.getSaveFileName(
-                self, "保存图像", "",
+                self, "保存图像", dataset_dir,
                 "PNG Files (*.png);;JPEG Files (*.jpg)", options=options)
-
             if file_path:
-                try:
-                    cv2.imwrite(file_path,
-                                cv2.cvtColor(self.enhanced_image, cv2.COLOR_RGB2BGR))
-                    QMessageBox.information(self, "保存成功",
-                                            f"图像已保存至:\n{file_path}", QMessageBox.Ok)
-                except Exception as e:
-                    QMessageBox.critical(self, "保存失败",
-                                         f"保存文件时出错:\n{str(e)}")
+
+                filename = os.path.basename(file_path)
+                save_path = os.path.join(dataset_dir, filename)
+
+                cv2.imwrite(save_path, cv2.cvtColor(self.enhanced_image, cv2.COLOR_RGB2BGR))
+                QMessageBox.information(self, "保存成功",
+                                        f"图像已保存至：\n{save_path}", QMessageBox.Ok)
 
     def resizeEvent(self, event):
         for label in [self.original_view, self.processed_view]:

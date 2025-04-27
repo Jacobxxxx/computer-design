@@ -145,10 +145,12 @@ class LowLightEnhanceUI(QtWidgets.QWidget):
         self.setLayout(main_layout)
 
     def select_file(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        dataset_dir = os.path.join(current_dir, "test")
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "选择图像文件", "",
-            "Images (*.png *.jpg *.jpeg *.bmp)", options=options)
+            self, "选择图像文件", directory=dataset_dir,
+            filter="Images (*.png *.jpg *.jpeg *.bmp)", options=options)
 
         if file_path:
             try:
@@ -182,23 +184,28 @@ class LowLightEnhanceUI(QtWidgets.QWidget):
 
     def display_image(self, image, label):
         try:
-            if image is None or image.size == 0:
-                raise ValueError("无效图像输入")
-
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-            # 内存连续性处理
-            if not image_rgb.flags['C_CONTIGUOUS']:
-                image_rgb = np.ascontiguousarray(image_rgb)
-
-            h, w, ch = image_rgb.shape
-            img_bytes = image_rgb.tobytes()
-
-            qimg = QtGui.QImage(img_bytes, w, h,
-                                ch * w, QtGui.QImage.Format_RGB888)
-            pixmap = QtGui.QPixmap.fromImage(qimg).scaled(
+            if isinstance(image, QImage):
+                pixmap = QtGui.QPixmap.fromImage(image).scaled(
                 label.width() - 20, label.height() - 20,
                 QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+            else:
+                if image is None or image.size == 0:
+                    raise ValueError("无效图像输入")
+
+                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+                # 内存连续性处理
+                if not image_rgb.flags['C_CONTIGUOUS']:
+                    image_rgb = np.ascontiguousarray(image_rgb)
+
+                h, w, ch = image_rgb.shape
+                img_bytes = image_rgb.tobytes()
+
+                qimg = QtGui.QImage(img_bytes, w, h,
+                                    ch * w, QtGui.QImage.Format_RGB888)
+                pixmap = QtGui.QPixmap.fromImage(qimg).scaled(
+                    label.width() - 20, label.height() - 20,
+                    QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
             label.setPixmap(pixmap)
 
         except Exception as e:
@@ -208,6 +215,9 @@ class LowLightEnhanceUI(QtWidgets.QWidget):
 
     def save_file(self):
         if hasattr(self, 'enhanced_image'):
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            dataset_dir = os.path.join(current_dir, "output")
+            os.makedirs(dataset_dir, exist_ok=True)
             options = QFileDialog.Options()
             file_path, _ = QFileDialog.getSaveFileName(
                 self, "保存图像", "",
@@ -215,9 +225,7 @@ class LowLightEnhanceUI(QtWidgets.QWidget):
 
             if file_path:
                 try:
-                    # 转换颜色空间并保存
-                    cv2.imwrite(file_path,
-                                cv2.cvtColor(self.enhanced_image, cv2.COLOR_RGB2BGR))
+                    self.enhanced_image.save(file_path)
                     QtWidgets.QMessageBox.information(self, "保存成功",
                                                       f"图像已保存至:\n{file_path}", QtWidgets.QMessageBox.Ok)
                 except Exception as e:

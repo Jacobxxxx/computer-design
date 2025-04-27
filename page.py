@@ -18,7 +18,7 @@ class ImageEnhancerApp(QWidget):
         self.low_light_model = load_model()
         self.initUI()
         self.init_style()
-        self.background = QPixmap("background.png")  # 加载背景图片
+        self.background = QPixmap("background.png")
 
     def init_style(self):
         self.setStyleSheet("""
@@ -75,7 +75,7 @@ class ImageEnhancerApp(QWidget):
         main_layout = QHBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        # ===================== 左侧面板 =====================
+        # 左侧面板
         left_panel = QWidget()
         left_panel.setFixedWidth(400)
         left_panel.setAttribute(Qt.WA_TranslucentBackground)
@@ -91,7 +91,7 @@ class ImageEnhancerApp(QWidget):
 
         left_panel.setLayout(left_layout)
 
-        # ===================== 右侧面板 =====================
+        #右侧面板
         right_panel = QWidget()
         right_panel.setAttribute(Qt.WA_TranslucentBackground)
         right_layout = QVBoxLayout()
@@ -101,9 +101,10 @@ class ImageEnhancerApp(QWidget):
         btn_group = QVBoxLayout()
         btn_group.setSpacing(20)
         functions = [
-            ("雨天增强", "rain_enhance.svg"),
+
             ("低光增强", "low_light.svg"),
-            ("雾天增强", "fog_enhance.svg")
+            ("雾天增强", "fog_enhance.svg"),
+            ("雨天增强", "rain_enhance.svg")
         ]
 
         for text, icon in functions:
@@ -150,10 +151,8 @@ class ImageEnhancerApp(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    # 统一字体设置
     font = QFont("Microsoft YaHei", 10)
     app.setFont(font)
-    # 高DPI支持
     app.setAttribute(Qt.AA_EnableHighDpiScaling)
     window = ImageEnhancerApp()
     window.show()
